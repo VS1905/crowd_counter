@@ -1,0 +1,39 @@
+import cv2
+from google.colab import files
+import numpy as np
+from PIL import Image
+
+# Upload the deploy.prototxt and mobilenet_iter_73000.caffemodel files
+uploaded = files.upload()
+
+# Load the pre-trained MobileNetSSD model
+net = cv2.dnn.readNetFromCaffe("deploy.prototxt", "mobilenet_iter_73000.caffemodel")
+
+def count_people(image_path):
+    # Load the image
+    image = cv2.imread(image_path)
+    height, width = image.shape[:2]
+
+    # Preprocess the image
+    blob = cv2.dnn.blobFromImage(image, 0.007843, (300, 300), 127.5)
+
+    # Set the input to the model and perform forward pass
+    net.setInput(blob)
+    detections = net.forward()
+
+    # Count the number of people
+    people_count = 0
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        if confidence > 0.2:  # Confidence threshold
+            class_id = int(detections[0, 0, i, 1])
+            if class_id == 15:  # 15 corresponds to the "person" class in MobileNetSSD
+                people_count += 1
+
+    return people_count
+
+# Example usage
+# Upload your image to Colab or provide a link accessible from the internet
+image_path = "path/to/your/photo.jpg"  # Update this with the actual path or URL
+result = count_people(image_path)
+print(f"Number of people in the photograph: {result}")
