@@ -47,7 +47,7 @@ def count_people_api():
         return jsonify({'people_count': people_count})
     else:
         # Render a simple HTML page with a file upload form
-        return render_template('index.html')
+        return render_template('crowd-counting.html')
 
 #API
 from flask_restful import Api, Resource, reqparse
