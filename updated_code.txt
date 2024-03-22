@@ -1,0 +1,253 @@
+from flask import Flask, request, jsonify, render_template
+import cv2
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+import cv2
+
+app = Flask(__name__)
+CORS(app)
+
+net = cv2.dnn.readNetFromCaffe("deploy.prototxt", "mobilenet_iter_73000.caffemodel")
+
+def count_people(image_path):
+    image = cv2.imread(image_path)
+
+    if image is None:
+        print(f"Error: Unable to open the image file '{image_path}'. Check the file path/integrity.")
+        return
+
+    height, width = image.shape[:2]
+
+    blob = cv2.dnn.blobFromImage(image, 0.007843, (300, 300), 127.5)
+    net.setInput(blob)
+    detections = net.forward()
+
+    people_count = 0
+    for i in range(detections.shape[2]):
+        confidence = detections[0, 0, i, 2]
+        if confidence > 0.2:
+            class_id = int(detections[0, 0, i, 1])
+            if class_id == 15:
+                people_count += 1
+
+    return people_count
+
+@app.route('/', methods=['GET', 'POST'])
+def count_people_api():
+    if request.method == 'POST':
+        # Check if the 'image' file is present in the request
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'})
+
+        # Get the image file from the request
+        file = request.files['image']
+
+        # Save the image to a temporary file
+        image_path = 'temp.jpg'
+        file.save(image_path)
+
+        # Count people using the existing function
+        people_count = count_people(image_path)
+
+        # Return the result as JSON
+        return jsonify({'people_count': people_count})
+    else:
+        # Render a simple HTML page with a file upload form
+        return render_template('crowd-counting.html')
+
+#API
+
+from flask_restful import Api, Resource, reqparse
+api = Api(app)
+
+API_KEY = "4965428e7f39eaa8de9ee65134b23340"
+parser = reqparse.RequestParser()
+parser.add_argument('api_key', location='headers')
+
+def authenticate(func):
+    def wrapper(*args, **kwargs):
+        args = parser.parse_args()
+        if args['api_key'] == API_KEY:
+            return func(*args, **kwargs)
+        else:
+            return {'error': 'Unauthorized'}, 401
+    return wrapper
+
+class PeopleCountResource(Resource):
+    @authenticate
+    def post(self):
+        # Check if the 'image' file is present in the request
+        if 'image' not in request.files:
+            return {'error': 'No image file provided'}
+
+        # Get the image file from the request
+        file = request.files['image']
+
+        # Save the image to a temporary file
+        image_path = 'temp.jpg'
+        file.save(image_path)
+
+        # Count people using the existing function
+        people_count = count_people(image_path)
+
+        # Return the result as JSON
+        return {'people_count': people_count}
+
+api.add_resource(PeopleCountResource, '/')
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+
+
+HTML: 
+
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Testpoint</title>
+    <style>
+        
+        body {
+            background-color: #f0f0f0; 
+            font-family: 'DM Sans', sans-serif;
+        }
+        .testnav {
+            background-color: #ffffff; 
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+        }
+        .testmenu li {
+            list-style: none;
+            margin-right: 20px;
+            font-size: 16px;
+        }
+        .testmenu li a {
+            text-decoration: none;
+            color: #333;
+        }
+        .testmenu li a:hover {
+            color: #555;
+        }
+        .testContainer {
+            margin-top: 20px;
+        }
+        .testDiv {
+            background-color: #ffffff; /* Change bg-lgery to #ffffff */
+            border-radius: 5px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-warning {
+            background-color: #ff8c00; 
+            border: none;
+        }
+        .btn-warning:hover {
+            background-color: #ff9900; 
+        }
+    </style>
+</head>
+<body>
+<div class="Wrapper ">
+    <header>
+        <nav class="testnav">
+            <div class="container">
+                <div class="d-flex justify-content-between">
+                    <div class="t-left d-flex align-items-center">
+                        <a class="navbar-brand" href="#">
+                            <!-- <img src="img/logo.png" alt="logo" height="20"> -->
+                        </a>
+                        <ul class="testmenu d-flex align-items-center">
+                            <li>
+                                <a href="#">
+                                    API Endpoints
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#">
+                                    Logs
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#">
+                                    Billing
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="d-flex t-Rt">
+                        <a href="#">
+                            Docs
+                        </a>
+                        <a href="#" class="t-user">
+                            PR
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <div class="testContainer">
+            <h2>Test API Endpoint</h2>
+            <div class="testDiv">
+                <div class="ts-top">
+                    <h5 class="m-0">Test Endpoint</h5>
+                    <p class="mt-1">See the results of your endpoint</p>
+                </div>
+                <div class="row m-0 p-3">
+                    <div class="col-md-6">
+                        <form id="image-form" enctype="multipart/form-data">
+                            <label for="image" class="fimg fw-semibold mb-1">Image<span class="link-danger">*</span></label>
+                            <div class="imguload">
+                                <div class="d-flex text-center relative justify-content-center flex-column p-4">
+                                    <input type="file" name="file" id="file-upload" accept="image/*" class="sr-only">
+                                    <label for="file-upload" class="relative cursor-pointer fw-medium light-grey">
+                                        <span class="c-orange fw-semibold cursor-pointer">Upload an image</span>
+                                    </label>
+                                    <p class="mb-1">or drag and drop</p>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end p-3 bg-lgery">
+                    <button type="button" id="test-btn" class="btn btn-warning bg-orange text-white rounded">Test Endpoint</button>
+                </div>
+            </div>
+            <div class="testDiv mt-3" id="result-div">
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('test-btn').addEventListener('click', function() {
+    var form = document.getElementById('image-form');
+    var fileInput = document.getElementById('file-upload');
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        alert('Please select an image file.');
+        return;
+    }var formData = new FormData(form);
+    var file = fileInput.files[0];
+    formData.append('image', file);
+
+    fetch('http://127.0.0.1:5000', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data);
+        var resultDiv = document.getElementById('result-div');
+        resultDiv.innerHTML = '<h5>Result:</h5><p>' + data.people_count + '</p>';
+    })
+    .catch(error => console.error('Error:', error));
+});
+
+</script>
+</body>
+</html>
+
