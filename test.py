@@ -1,7 +1,12 @@
 from flask import Flask, request, jsonify, render_template
 import cv2
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
+import cv2
 
 app = Flask(__name__)
+CORS(app)
+
 net = cv2.dnn.readNetFromCaffe("deploy.prototxt", "mobilenet_iter_73000.caffemodel")
 
 def count_people(image_path):
@@ -9,11 +14,11 @@ def count_people(image_path):
 
     if image is None:
         print(f"Error: Unable to open the image file '{image_path}'. Check the file path/integrity.")
-        return 0
+        return
 
     height, width = image.shape[:2]
 
-    blob = cv2.dnn.blobFromImage(image,0.007843,(300, 300),127.5)
+    blob = cv2.dnn.blobFromImage(image, 0.007843, (300, 300), 127.5)
     net.setInput(blob)
     detections = net.forward()
 
@@ -26,6 +31,7 @@ def count_people(image_path):
                 people_count += 1
 
     return people_count
+
 @app.route('/', methods=['GET', 'POST'])
 def count_people_api():
     if request.method == 'POST':
@@ -50,6 +56,7 @@ def count_people_api():
         return render_template('crowd-counting.html')
 
 #API
+
 from flask_restful import Api, Resource, reqparse
 api = Api(app)
 
@@ -89,4 +96,4 @@ class PeopleCountResource(Resource):
 api.add_resource(PeopleCountResource, '/')
 
 if __name__ == "__main__":
-    app.run(debug=False)
+    app.run(debug=True)
