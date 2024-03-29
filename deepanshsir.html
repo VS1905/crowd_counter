@@ -1,121 +1,17 @@
-from flask import Flask, request, jsonify, render_template
-import cv2
-from flask import Flask, request, jsonify, render_template
-from flask_cors import CORS
-import cv2
-
-app = Flask(__name__)
-CORS(app)
-
-net = cv2.dnn.readNetFromCaffe("deploy.prototxt", "mobilenet_iter_73000.caffemodel")
-
-def count_people(image_path):
-    image = cv2.imread(image_path)
-
-    if image is None:
-        print(f"Error: Unable to open the image file '{image_path}'. Check the file path/integrity.")
-        return
-
-    height, width = image.shape[:2]
-
-    blob = cv2.dnn.blobFromImage(image, 0.007843, (300, 300), 127.5)
-    net.setInput(blob)
-    detections = net.forward()
-
-    people_count = 0
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
-        if confidence > 0.2:
-            class_id = int(detections[0, 0, i, 1])
-            if class_id == 15:
-                people_count += 1
-
-    return people_count
-
-@app.route('/', methods=['GET', 'POST'])
-def count_people_api():
-    if request.method == 'POST':
-        # Check if the 'image' file is present in the request
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file provided'})
-
-        # Get the image file from the request
-        file = request.files['image']
-
-        # Save the image to a temporary file
-        image_path = 'temp.jpg'
-        file.save(image_path)
-
-        # Count people using the existing function
-        people_count = count_people(image_path)
-
-        # Return the result as JSON
-        return jsonify({'people_count': people_count})
-    else:
-        # Render a simple HTML page with a file upload form
-        return render_template('crowd-counting.html')
-
-#API
-
-from flask_restful import Api, Resource, reqparse
-api = Api(app)
-
-API_KEY = "4965428e7f39eaa8de9ee65134b23340"
-parser = reqparse.RequestParser()
-parser.add_argument('api_key', location='headers')
-
-def authenticate(func):
-    def wrapper(*args, **kwargs):
-        args = parser.parse_args()
-        if args['api_key'] == API_KEY:
-            return func(*args, **kwargs)
-        else:
-            return {'error': 'Unauthorized'}, 401
-    return wrapper
-
-class PeopleCountResource(Resource):
-    @authenticate
-    def post(self):
-        # Check if the 'image' file is present in the request
-        if 'image' not in request.files:
-            return {'error': 'No image file provided'}
-
-        # Get the image file from the request
-        file = request.files['image']
-
-        # Save the image to a temporary file
-        image_path = 'temp.jpg'
-        file.save(image_path)
-
-        # Count people using the existing function
-        people_count = count_people(image_path)
-
-        # Return the result as JSON
-        return {'people_count': people_count}
-
-api.add_resource(PeopleCountResource, '/')
-
-if __name__ == "__main__":
-    app.run(debug=True)
-
-
-
-HTML: 
-
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Testpoint</title>
+    <title>Crowd-Counting</title>
     <style>
-        
+
         body {
-            background-color: #f0f0f0; 
+            background-color: #f0f0f0;
             font-family: 'DM Sans', sans-serif;
         }
         .testnav {
-            background-color: #ffffff; 
+            background-color: #ffffff;
             padding: 15px;
             border-bottom: 1px solid #ddd;
         }
@@ -141,14 +37,26 @@ HTML:
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
         .btn-warning {
-            background-color: #ff8c00; 
+            background-color: #ff8c00;
             border: none;
         }
         .btn-warning:hover {
-            background-color: #ff9900; 
+            background-color: #ff9900;
         }
     </style>
+
+
+
+
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,200;0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;0,9..40,1000;1,9..40,200;1,9..40,300;1,9..40,400;1,9..40,500;1,9..40,600;1,9..40,700;1,9..40,800;1,9..40,900;1,9..40,1000&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link href="https://internship.jhamobi.com/projects/t003-m002-p001/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://internship.jhamobi.com/projects/t003-m002-p001/css/main.css" rel="stylesheet">
 </head>
+
+
+
 <body>
 <div class="Wrapper ">
     <header>
@@ -157,7 +65,7 @@ HTML:
                 <div class="d-flex justify-content-between">
                     <div class="t-left d-flex align-items-center">
                         <a class="navbar-brand" href="#">
-                            <!-- <img src="img/logo.png" alt="logo" height="20"> -->
+                            <img src="https://internship.jhamobi.com/projects/t003-m002-p001/img/logo.png" alt="logo" height="20">
                         </a>
                         <ul class="testmenu d-flex align-items-center">
                             <li>
@@ -226,7 +134,7 @@ HTML:
     document.getElementById('test-btn').addEventListener('click', function() {
     var form = document.getElementById('image-form');
     var fileInput = document.getElementById('file-upload');
-    
+
     if (!fileInput.files || fileInput.files.length === 0) {
         alert('Please select an image file.');
         return;
@@ -234,7 +142,7 @@ HTML:
     var file = fileInput.files[0];
     formData.append('image', file);
 
-    fetch('http://127.0.0.1:5000', {
+    fetch('http://13.200.114.28:5000', {
         method: 'POST',
         body: formData
     })
@@ -250,4 +158,3 @@ HTML:
 </script>
 </body>
 </html>
-
